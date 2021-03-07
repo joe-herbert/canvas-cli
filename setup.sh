@@ -1,17 +1,21 @@
+#!/bin/bash
 #get/check canvas token
-CANVAS_URL="https://liverpool.instructure.com"
+CANVAS_URL=""
 CANVAS_TOKEN=""
+SETTINGS_LOCATION=~/.config/canvas_settings
 
 get_canvas_token() {
-    if [ -f ~/.config/canvas_settings ]; then
-        unset -v CANVAS_URL CANVAS_TOKEN
-        { IFS= read -r CANVAS_URL && IFS= read -r CANVAS_TOKEN; } < ~/.config/canvas_settings
+    if [ -f $SETTINGS_LOCATION ]; then
+        settings=$(cat "$SETTINGS_LOCATION")
+        settingsArr=(${settings//|/ })
+        CANVAS_URL="${settingsArr[0]}"
+        CANVAS_TOKEN="${settingsArr[1]}"
     else
         read -p "Enter canvas url (e.g. liverpool.instructure.com): " CANVAS_URL
         CANVAS_URL="https://$CANVAS_URL"
         read -p "Enter canvas token: " CANVAS_TOKEN
-        echo -ne "$CANVAS_URL\n$CANVAS_TOKEN" > ~/.config/canvas_settings
-        chmod 400 ~/.config/canvas_settings
+        echo $(echo -ne "$CANVAS_URL|$CANVAS_TOKEN" > $SETTINGS_LOCATION)
+        chmod 400 $SETTINGS_LOCATION
     fi
 }
 
@@ -23,7 +27,8 @@ get_canvas_token
 check_status=$(check_canvas_token "$CANVAS_TOKEN")
 while [ "$check_status" != "200" ]; do
     echo
-    rm -f ~/.config/canvas_settings
+    rm -f $SETTINGS_LOCATION
     get_canvas_token
     check_status=$(check_canvas_token "$CANVAS_TOKEN")
+    echo $check_status
 done
