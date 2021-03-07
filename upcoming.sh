@@ -49,10 +49,7 @@ while getopts ":hclsm:" opt; do
     esac
 done
 
-echo "before set up"
 . setup.sh
-
-echo "set up complete"
 
 #define vars for assignments
 RED='\033[0;91m'
