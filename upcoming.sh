@@ -49,33 +49,10 @@ while getopts ":hclsm:" opt; do
     esac
 done
 
-#get/check canvas token
-CANVAS_URL="https://liverpool.instructure.com"
-CANVAS_TOKEN=""
+echo "before set up"
+. setup.sh
 
-get_canvas_token() {
-    if [ -f ~/.config/canvas_token ]; then
-        CANVAS_TOKEN=$(cat ~/.config/canvas_token)
-    else
-        #CANVAS_TOKEN=$(rofi -p "Enter canvas token: " -password -dmenu -lines 0)
-        read -p "Enter canvas token: " CANVAS_TOKEN
-        echo -n "$CANVAS_TOKEN" > ~/.config/canvas_token
-        chmod 400 ~/.config/canvas_token
-    fi
-}
-
-check_canvas_token() {
-    curl -so /dev/null -w "%{http_code}" -H "Authorization: Bearer $1" "$CANVAS_URL/api/v1/accounts"
-}
-
-get_canvas_token
-check_status=$(check_canvas_token "$CANVAS_TOKEN")
-while [ "$check_status" != "200" ]; do
-    echo
-    rm -f ~/.config/canvas_token
-    get_canvas_token
-    check_status=$(check_canvas_token "$CANVAS_TOKEN")
-done
+echo "set up complete"
 
 #define vars for assignments
 RED='\033[0;91m'
@@ -91,27 +68,10 @@ deadlinesArray=()
 modulesArray=()
 unlocksAtArray=()
 
-#loader
-loader() {
-    str="Loading"
-    echo -ne "$str\r"
-    while true; do
-        str="$str."
-        if [ $str = "Loading....." ]; then
-            echo -ne "           \r"
-            str="Loading"
-        fi
-        echo -ne "$str\r"
-        sleep .5
-    done
-}
-
-loader &
-LOADER_PID=$!
-trap "kill -9 $LOADER_PID" `seq 0 15`
+. loader.sh
 
 #for each course
-for course in $(curl -s -H "Authorization: Bearer $CANVAS_TOKEN" "https://liverpool.instructure.com/api/v1/courses" | jq -r '.[] | @base64'); do
+for course in $(curl -s -H "Authorization: Bearer $CANVAS_TOKEN" "$CANVAS_URL/api/v1/courses" | jq -r '.[] | @base64'); do
 
     _jqCourse() {
         echo ${course} | base64 --decode | jq -r ${1}
@@ -120,7 +80,7 @@ for course in $(curl -s -H "Authorization: Bearer $CANVAS_TOKEN" "https://liverp
     course_code="$(_jqCourse '.course_code')"
     if [ "$filterModules" = false ] || [[ " ${moduleList[@]} " =~ " ${course_code:4:3} " ]]; then
     
-        for row in $(curl -s -H "Authorization: Bearer $CANVAS_TOKEN" "https://liverpool.instructure.com/api/v1/courses/$(_jqCourse '.id')/assignments?order_by=due_at&include[]=submission" | jq -r '.[] | @base64'); do
+        for row in $(curl -s -H "Authorization: Bearer $CANVAS_TOKEN" "$CANVAS_URL/api/v1/courses/$(_jqCourse '.id')/assignments?order_by=due_at&include[]=submission" | jq -r '.[] | @base64'); do
 
             _jqRow() {
                 echo ${row} | base64 --decode | jq -r ${1}
