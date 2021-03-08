@@ -20,7 +20,7 @@ For example:
         s settings  Change your canvas url or token.  
 
 ### Generating a Canvas Token
-You must generate a canvas token to use this script. On Canvas, go to your Account Settings and look under Approved Integrations. Create a new access token with the name "Canvas CLI" and with no expiration date. Copy the token value and run `canvas s`. Enter the url you access Canvas at (e.g. liverpool.instructure.com) and then paste the token when requested.  
+You must generate a canvas token to use this script. On Canvas, go to your Account Settings and look under Approved Integrations. Create a new access token with the name "Canvas CLI" and with no expiration date. Copy the token value and run `canvas s` in your terminal. Enter the url you access Canvas at (e.g. liverpool.instructure.com) and then paste the token when requested.  
 
 ## Bugs/Contributing
 If you find any bugs then please report it here on GitHub or by dropping me an email at <joe@joeherbert.dev>.  
