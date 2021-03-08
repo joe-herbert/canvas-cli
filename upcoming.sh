@@ -103,12 +103,12 @@ for course in $(curl -s -H "Authorization: Bearer $CANVAS_TOKEN" "$COURSE_URL" |
                     #need to check if lock_at is null or in the future
                     if [ "$lock_at" = "null" ] || [ "$(date -d $lock_at +"%s")" -ge $today ]; then
                         deadline=$(date -d $due_at +"%s")
-                        if [ $lock_at != "null" ]; then
+                        if [ $lock_at != "null" ] && [ $(date -d $lock_at +"%s") -le $deadline ]; then
                             deadline=$(date -d $lock_at +"%s")
                         fi
                         color=${NC}
                         if [ $(_jqRow '.submission' | jq -r '.workflow_state') != "unsubmitted" ]; then
-                            if [ "$includeSubmitted"=false ]; then
+                            if [ "$includeSubmitted" = false ]; then
                                 continue
                             fi
                             color=${GREEN}
