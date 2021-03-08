@@ -9,18 +9,22 @@ set -e
 #-s include submitted
 
 compact=false
+blankMode=false
+onlyFavCourses=false
 includeLocked=false
 includeSubmitted=false
 filterModules=false
 moduleList=()
 
-while getopts ":hclsm:" opt; do
+while getopts ":hcbflsm:" opt; do
     case $opt in
-        h ) echo -e "Usage:\n\t-h,Display this help message.\n\t-c,Display the output in compact style.\n\t-l,Display assignments which haven't yet unlocked.\n\t-s,Display submitted assignments.\n\t-m [code],Display only specific modules. Modules should be specified as 3 digit numeric codes separated by a comma." | column -t -s ','
+        h ) echo -e "Usage:\n\t-h,Display this help message.\n\t-c,Display the output in compact style.\n\t-b,Enable blank mode so the output doesn't use colours.\n\t-f,Display only favourited courses.\n\t-l,Display assignments which haven't yet unlocked.\n\t-s,Display submitted assignments.\n\t-m [code],Display only specific modules. Modules should be specified as 3 digit numeric codes separated by a comma." | column -t -s ','
             echo -e "\nCanvas Token:\nYou must generate a canvas token to use this script. On Canvas, go to your Account Settings and look under Approved Integrations. Create a new access token with the name \"Canvas CLI\" and with no expiration date. Copy the token value, run any Canvas CLI command and paste the token when requested."
             exit 0
             ;;
         c ) compact=true;;
+        b ) blankMode=true;;
+        f ) onlyFavCourses=true;;
         l ) includeLocked=true;;
         s ) includeSubmitted=true;;
         m ) case $OPTARG in
@@ -56,6 +60,10 @@ RED='\033[0;91m'
 GREEN='\033[0;92m'
 ORANGE='\033[0;93m'
 NC='\033[0m'
+COURSE_URL="$CANVAS_URL/api/v1/courses"
+if [ "$onlyFavCourses" = true ]; then
+    COURSE_URL="$CANVAS_URL/api/v1/users/self/favorites/courses"
+fi
 today=$(date +"%s")
 twoDays=$(date -d "+2days" +"%s")
 oneWeek=$(date -d "+10days" +"%s")
@@ -68,7 +76,7 @@ unlocksAtArray=()
 . loader.sh
 
 #for each course
-for course in $(curl -s -H "Authorization: Bearer $CANVAS_TOKEN" "$CANVAS_URL/api/v1/courses" | jq -r '.[] | @base64'); do
+for course in $(curl -s -H "Authorization: Bearer $CANVAS_TOKEN" "$COURSE_URL" | jq -r '.[] | @base64'); do
 
     _jqCourse() {
         echo ${course} | base64 --decode | jq -r ${1}
@@ -141,19 +149,22 @@ printf "\033[1;2m"
 for ((i=0; i<${#titlesArray[@]}; i++)); do
     if [ "$lastModule" != "${modulesArray[i]}" ]; then
         if [ "$lastModule" != "" ]; then
-            echo -e ",,"
+            echo -e "||"
         fi
         if [ "$compact" = false ]; then
             echo -e "\033[1;2m${modulesArray[i]}"
         fi
         lastModule=${modulesArray[i]}
     fi
-    line="${colorsArray[i]}${titlesArray[i]}${NC},${deadlinesArray[i]}"
+    line="${titlesArray[i]}${NC}|${deadlinesArray[i]}"
+    if [ "$blankMode" = false ]; then
+        line="${colorsArray[i]}$line"
+    fi
     if [ "$compact" = true ]; then
-        line="${NC}${modulesArray[i]},$line"
+        line="${NC}${modulesArray[i]}|$line"
     fi
     if [ "$includeLocked" = true ]; then
-        line="$line,${unlocksAtArray[i]}"
+        line="$line|${unlocksAtArray[i]}"
     fi
     echo -e "$line"
-done | column -t -s ',' -N "$tableHeaders"
+done | column -t -s '|' -N "$tableHeaders"
