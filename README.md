@@ -4,7 +4,7 @@ A Bash CLI for the Canvas VLE
 
 ## Installation
 Canvas CLI is a bash script, so you can just clone it somewhere and make sure it's added to your `$PATH`.  
-For example:
+For example:  
     $ git clone "https://github.com/joe-herbert/canvas-cli.git" /usr/local/bin/canvas-cli  
     $ chmod +x /usr/local/bin/canvas-cli/canvas.sh  
 
