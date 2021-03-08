@@ -16,7 +16,8 @@ courseList=()
 
 while getopts ":hcbfm:" opt; do
     case $opt in
-        h ) echo -e "Usage:\n\t-h,Display this help message.\n\t-c,Display the output in compact style.\n\t-b,Enable blank mode so the output doesn't use colours.\n\t-f,Display only favourited courses.\n\t-m [code],Display only specific courses. Courses should be specified as 3 digit numeric codes separated by a comma." | column -t -s ','
+        h ) echo -e "\nUsage:\n\tcanvas g [option]\n\tcanvas grades [option]"
+            echo -e "\nOptions:\n\t-h,Display this help message.\n\t-c,Display the output in compact style.\n\t-b,Enable blank mode so the output doesn't use colours.\n\t-f,Display only favourited courses.\n\t-m [code],Display only specific courses. Courses should be specified as 3 digit numeric codes separated by a comma." | column -t -s ','
             echo -e "\nCanvas Token:\nYou must generate a canvas token to use this script. On Canvas, go to your Account Settings and look under Approved Integrations. Create a new access token with the name \"Canvas CLI\" and with no expiration date. Copy the token value, run any Canvas CLI command and paste the token when requested."
             exit 0
             ;;

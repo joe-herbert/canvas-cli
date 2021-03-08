@@ -18,7 +18,8 @@ moduleList=()
 
 while getopts ":hcbflsm:" opt; do
     case $opt in
-        h ) echo -e "Usage:\n\t-h,Display this help message.\n\t-c,Display the output in compact style.\n\t-b,Enable blank mode so the output doesn't use colours.\n\t-f,Display only favourited courses.\n\t-l,Display assignments which haven't yet unlocked.\n\t-s,Display submitted assignments.\n\t-m [code],Display only specific modules. Modules should be specified as 3 digit numeric codes separated by a comma." | column -t -s ','
+        h ) echo -e "\nUsage:\n\tcanvas u [option]\n\tcanvas upcoming [option]"
+            echo -e "Options:\n\t-h,Display this help message.\n\t-c,Display the output in compact style.\n\t-b,Enable blank mode so the output doesn't use colours.\n\t-f,Display only favourited courses.\n\t-l,Display assignments which haven't yet unlocked.\n\t-s,Display submitted assignments.\n\t-m [code],Display only specific modules. Modules should be specified as 3 digit numeric codes separated by a comma." | column -t -s ','
             echo -e "\nCanvas Token:\nYou must generate a canvas token to use this script. On Canvas, go to your Account Settings and look under Approved Integrations. Create a new access token with the name \"Canvas CLI\" and with no expiration date. Copy the token value, run any Canvas CLI command and paste the token when requested."
             exit 0
             ;;

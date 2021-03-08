@@ -10,6 +10,19 @@ get_canvas_token() {
         settingsArr=(${settings//|/ })
         CANVAS_URL="${settingsArr[0]}"
         CANVAS_TOKEN="${settingsArr[1]}"
+        #change option enabled
+        if [ "$1" = "-c" ]; then
+            read -p "Enter canvas url (e.g. liverpool.instructure.com): " tmpUrl
+            if [ "$tmpUrl" != "" ]; then 
+                CANVAS_URL="https://$tmpUrl"
+            fi
+            read -p "Enter canvas token: " tmpToken
+            if [ "$tmpToken" != "" ]; then
+                CANVAS_TOKEN="$tmpToken"
+            fi
+            echo $(echo -ne "$CANVAS_URL|$CANVAS_TOKEN" > $SETTINGS_LOCATION)
+            chmod 400 $SETTINGS_LOCATION
+        fi
     else
         read -p "Enter canvas url (e.g. liverpool.instructure.com): " CANVAS_URL
         CANVAS_URL="https://$CANVAS_URL"
