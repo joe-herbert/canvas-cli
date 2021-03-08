@@ -1,4 +1,6 @@
 #!/bin/bash
+set -e
+
 #get/check canvas token
 CANVAS_URL=""
 CANVAS_TOKEN=""

@@ -1,13 +1,6 @@
 #!/bin/bash
 set -e
 
-#help plans
-#explain how to get canvas token
-#-c compact output - original one table style
-#-a any - not just assignments which are available right now
-#-m specify module
-#-s include submitted
-
 compact=false
 blankMode=false
 onlyFavCourses=false

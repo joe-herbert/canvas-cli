@@ -1,18 +1,5 @@
 #!/bin/bash
-
-#while getopts ":h" opt; do
-#    case ${opt} in
-#        h ) 
-#            echo_help
-#            exit 0
-#            ;;
-#        \? )
-#            echo "Invalid Option: -$OPTARG" 1>&2
-#            exit 1
-#            ;;
-#    esac
-#done
-#shift $((OPTIND -1))
+set -e
 
 subcommand=$1; shift  # Remove 'pip' from the argument list
 case "$subcommand" in

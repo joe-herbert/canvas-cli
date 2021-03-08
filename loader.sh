@@ -1,4 +1,6 @@
 #loader
+set -e
+
 loader() {
     str="Loading"
     echo -ne "$str\r"
