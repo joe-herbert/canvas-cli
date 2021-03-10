@@ -242,16 +242,21 @@ case "$subcommand" in
                 fi
                 if [ "$compact" = false ]; then
                     echo -e "\033[1;2m${coursesArray[i]}"
-                    fi
-                    lastCourse=${coursesArray[i]}
                 fi
-            line="${titlesArray[i]}${NC}|${deadlinesArray[i]}"
-            if [ "$blankMode" = false ]; then
-                line="${colorsArray[i]}$line"
+                lastCourse=${coursesArray[i]}
             fi
+            line=""
+            if [ "$blankMode" = false ]; then
+                line="${colorsArray[i]}"
+            fi
+            title="${titlesArray[i]}"
             if [ "$compact" = true ]; then
+                if [ ${#title} -gt 30 ]; then
+                    title="${title:0:30}..."
+                fi
                 line="${NC}${coursesArray[i]}|$line"
             fi
+            line="$line$title${NC}|${deadlinesArray[i]}"
             if [ "$includeLocked" = true ]; then
                 line="$line|${unlocksAtArray[i]}"
             fi
@@ -391,10 +396,15 @@ case "$subcommand" in
                 fi
                 grade="$grade%"
             fi
-            line="$color${titlesArray[i]}$NC|${scoresArray[i]}|${outOfArray[i]}|$grade"
+            line=""
+            title=${titlesArray[i]}
             if [ "$compact" = true ]; then
-                line="${NC}${coursesArray[i]}|$line"
+                if [ ${#title} -gt 30 ]; then
+                    title="${title:0:30}..."
+                fi
+                line="${NC}${coursesArray[i]}|"
             fi
+            line="$line$color$title$NC|${scoresArray[i]}|${outOfArray[i]}|$grade"
             echo -e "$line"
         done | column -t -s '|' -N "$tableHeaders"
         ;;
