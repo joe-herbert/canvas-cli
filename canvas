@@ -1,12 +1,7 @@
 #!/bin/bash
 set -e
-CANVAS_URL=""
-CANVAS_TOKEN=""
-SETTINGS_LOCATION=~/.config/canvas_settings
-CHANGE_ENABLED=false
 
 #get/check canvas token
-
 get_canvas_token() {
     if [ -f $SETTINGS_LOCATION ]; then
         settings=$(cat "$SETTINGS_LOCATION")
@@ -81,10 +76,19 @@ startLoader() {
     trap "kill -9 $LOADER_PID" `seq 0 15`
 }
 
-subcommand=$1; shift  # Remove 'pip' from the argument list
+CANVAS_URL=""
+CANVAS_TOKEN=""
+SETTINGS_LOCATION=~/.config/canvas_settings
+CHANGE_ENABLED=false
+
+subcommand=$1
+if [ "$subcommand" = "null" ] || [ "$subcommand" = "" ]; then
+    subcommand=""
+else
+    shift
+fi
 case "$subcommand" in
-    # Parse options to the install sub command
-    h|help|""|"-h"|"--help" )
+    h|help|""|"-h"|"--help"|null )
         echo
         echo -e "Usage:\n\tcanvas <operation> -h,Display help for specific operation.\n\tcanvas <operation> [option],Execute one of the operations below." | column -t -s ','
         echo -e "Operations:\n\th help,Display this help message.\n\tu upcoming,Display any assignments which are due in the future.\n\tg grades,Display submitted assignments and grades.\n\ts settings,Change your canvas url or token." | column -t -s ','
