@@ -29,7 +29,11 @@ get_canvas_token() {
         fi
     else
         read -p "Enter canvas url (e.g. liverpool.instructure.com): " CANVAS_URL
-        CANVAS_URL="https://$CANVAS_URL"
+        if [ "$CANVAS_URL" = "" ]; then
+            CANVAS_URL="https://liverpool.instructure.com"
+        else
+            CANVAS_URL="https://$CANVAS_URL"
+        fi
         read -p "Enter canvas token: " CANVAS_TOKEN
         echo $(echo -ne "$CANVAS_URL|$CANVAS_TOKEN" > $SETTINGS_LOCATION)
         chmod 400 $SETTINGS_LOCATION
@@ -125,7 +129,7 @@ case "$subcommand" in
                             while IFS=',' read -ra courses; do
                                 for i in "${courses[@]}"; do
                                     if [ "$i" != "" ]; then
-                                        courseList+=( ${i:0:3} )
+                                        courseList+=( $( echo "i" | sed 's@^[^0-9]*\([0-9]\+\).*@\1@' ) )
                                     fi
                                 done
                             done <<< $(echo "$OPTARG" | sed 's/[^0-9,]*//g')
@@ -149,6 +153,16 @@ case "$subcommand" in
         GREEN='\033[0;92m'
         ORANGE='\033[0;93m'
         NC='\033[0m'
+        BOLDDIM='\033[1;2m'
+        BLINK='\033[5m'
+        if [ "$blankMode" = true ]; then
+            RED=''
+            GREEN=''
+            ORANGE=''
+            NC=''
+            BOLDDIM=''
+            BLINK=''
+        fi
         COURSE_URL="$CANVAS_URL/api/v1/courses"
         if [ "$onlyFavCourses" = true ]; then
             COURSE_URL="$CANVAS_URL/api/v1/users/self/favorites/courses"
@@ -156,11 +170,12 @@ case "$subcommand" in
         today=$(date +"%s")
         twoDays=$(date -d "+2days" +"%s")
         oneWeek=$(date -d "+7days" +"%s")
-        colorsArray=()
-        titlesArray=()
-        deadlinesArray=()
-        coursesArray=()
-        unlocksAtArray=()
+        colorsArray=( "" )
+        titlesArray=( "Title" )
+        deadlinesArray=( "Deadline" )
+        coursesArray=( "Course" )
+        unlocksAtArray=( "Unlocks At" )
+        linksArray=( "" )
 
         startLoader
 
@@ -172,7 +187,7 @@ case "$subcommand" in
             }
 
             course_code="$(_jqCourse '.course_code')"
-            if [ "$filterCourses" = false ] || [[ " ${courseList[@]} " =~ " ${course_code:4:3} " ]]; then
+            if [ "$filterCourses" = false ] || [[ " ${courseList[@]} " =~ " $( echo "$course_code" | sed 's@^[^0-9]*\([0-9]\+\).*@\1@' ) " ]]; then
             
                 for row in $(curl -s -H "Authorization: Bearer $CANVAS_TOKEN" "$CANVAS_URL/api/v1/courses/$(_jqCourse '.id')/assignments?order_by=due_at&include[]=submission" | jq -r '.[] | @base64'); do
 
@@ -187,11 +202,17 @@ case "$subcommand" in
                     #need to check if unlock_at is null or in the past
                     if [ "$includeLocked" = true ] || [ "$unlock_at" = "null" ] || [ "$(date -d $unlock_at +"%s")" -le $today ]; then
                         #need to check if due_at is in the future
-                        if [ "$due_at" != "null" ] && [ "$(date -d $due_at +"%s")" -ge $today ]; then
+                        if [ "$includeSubmitted" = true ] || { [ "$due_at" != "null" ] && [ "$(date -d $due_at +"%s")" -ge $today ]; }; then
                             #need to check if lock_at is null or in the future
-                            if [ "$lock_at" = "null" ] || [ "$(date -d $lock_at +"%s")" -ge $today ]; then
-                                deadline=$(date -d $due_at +"%s")
-                                if [ $lock_at != "null" ] && [ $(date -d $lock_at +"%s") -le $deadline ]; then
+                            if [ "$includeSubmitted" = true ] || { [ "$lock_at" = "null" ] || [ "$(date -d $lock_at +"%s")" -ge $today ]; }; then
+                                invalidDate=false
+                                if [ "$due_at" != "null" ]; then
+                                    deadline=$(date -d $due_at +"%s")
+                                else
+                                    invalidDate=true
+                                    deadline=$(date -d "01/01/2000 00:00" +"%s")
+                                fi
+                                if [ "$lock_at" != "null" ] && [ $(date -d $lock_at +"%s") -le $deadline ]; then
                                     deadline=$(date -d $lock_at +"%s")
                                 fi
                                 color=${NC}
@@ -199,16 +220,29 @@ case "$subcommand" in
                                     if [ "$includeSubmitted" = false ]; then
                                         continue
                                     fi
-                                    color=${GREEN}
-                                elif [ "$deadline" -le "$twoDays" ]; then
-                                    color=${RED}
-                                elif [ "$deadline" -le "$oneWeek" ]; then
-                                    color=${ORANGE}
+                                    color=$GREEN
+                                elif [ "$invalidDate" = false ]; then
+                                    if [ "$deadline" -le "$today" ]; then
+                                        color=$RED$BLINK
+                                    elif [ "$deadline" -le "$twoDays" ]; then
+                                        color=$RED
+                                    elif [ "$deadline" -le "$oneWeek" ]; then
+                                        color=$ORANGE
+                                    fi
                                 fi
                                 colorsArray+=( "$color" )
-                                titlesArray+=( "$(_jqRow '.name')" )
-                                deadlinesArray+=( "$(date -d $due_at +"%a %d %b %Y %H:%M")" )
-                                coursesArray+=( ${course_code:4:3} )
+                                title=$(_jqRow '.name')
+                                if [ ${#title} -gt 30 ]; then
+                                    title="${title:0:27}..."
+                                fi
+                                titlesArray+=( "$title" )
+                                if [ "$invalidDate" = true ]; then
+                                    deadlinesArray+=( "" )
+                                else
+                                    deadlinesArray+=( "$(date -d $due_at +"%a %d %b %Y %H:%M")" )
+                                fi
+                                coursesArray+=( $( echo "$course_code" | sed 's@^[^0-9]*\([0-9]\+\).*@\1@' ) )
+                                linksArray+=( "$(_jqRow '.html_url')" )
                                 if [ "$includeLocked" = true ]; then
                                     if [ "$unlock_at" = "null" ] || [ "$(date -d $unlock_at +"%s")" -le $today ]; then
                                         unlocksAtArray+=( "" )
@@ -225,43 +259,50 @@ case "$subcommand" in
             fi
         done
 
-        #output
-        tableHeaders=""
-        if [ "$compact" = true ]; then
-            tableHeaders="Course,Title,Deadline"
-            if [ "$includeLocked" = true ]; then
-                tableHeaders="$tableHeaders,Unlocks At"
-            fi
-        fi
-        lastCourse=""
-        printf "\033[1;2m"
+        longestCourse=0
+        longestTitle=0
         for ((i=0; i<${#titlesArray[@]}; i++)); do
-            if [ "$lastCourse" != "${coursesArray[i]}" ]; then
-                if [ "$lastCourse" != "" ]; then
-                    echo -e "||"
-                fi
-                if [ "$compact" = false ]; then
-                    echo -e "\033[1;2m${coursesArray[i]}"
-                fi
-                lastCourse=${coursesArray[i]}
+            if [ "$compact" = true ] && [ ${#coursesArray[i]} -gt $longestCourse ]; then
+                longestCourse=${#coursesArray[i]}
             fi
-            line=""
-            if [ "$blankMode" = false ]; then
-                line="${colorsArray[i]}"
+            if [ ${#titlesArray[i]} -gt $longestTitle ]; then
+                longestTitle=${#titlesArray[i]}
             fi
-            title="${titlesArray[i]}"
-            if [ "$compact" = true ]; then
-                if [ ${#title} -gt 30 ]; then
-                    title="${title:0:30}..."
-                fi
-                line="${NC}${coursesArray[i]}|$line"
-            fi
-            line="$line$title${NC}|${deadlinesArray[i]}"
+        done
+
+        #output
+        echo -ne "           \r"
+        lastCourse=""
+        if [ "$compact" = true ]; then
+            printf "\n$BOLDDIM%-${longestCourse}s  %-${longestTitle}s  %-21s" ${coursesArray[0]} ${titlesArray[0]} ${deadlinesArray[0]}
             if [ "$includeLocked" = true ]; then
-                line="$line|${unlocksAtArray[i]}"
+                printf "  %-21s" "${unlocksAtArray[0]}"
             fi
-            echo -e "$line"
-        done | column -t -s '|' -N "$tableHeaders"
+            printf "$NC"
+            for ((i=1; i<${#titlesArray[@]}; i++)); do
+                if [ "$lastCourse" != "${coursesArray[i]}" ]; then
+                    printf "\n"
+                    lastCourse="${coursesArray[i]}"
+                fi
+                printf "%-${longestCourse}s  ${colorsArray[i]}\e]8;;${linksArray[i]}\a%-${longestTitle}s\e]8;;\a$NC  %-21s" "${coursesArray[i]}" "${titlesArray[i]}" "${deadlinesArray[i]}"
+                if [ "$includeLocked" = true ]; then
+                    printf "  %-21s" "${unlocksAtArray[i]}"
+                fi
+                printf "\n"
+            done
+        else
+            for ((i=1; i<${#titlesArray[@]}; i++)); do
+                if [ "$lastCourse" != "${coursesArray[i]}" ]; then
+                    printf "\n$BOLDDIM${coursesArray[i]}$NC\n"
+                    lastCourse="${coursesArray[i]}"
+                fi
+                printf "${colorsArray[i]}\e]8;;${linksArray[i]}\a%-${longestTitle}s\e]8;;\a$NC  %-21s" "${titlesArray[i]}" "${deadlinesArray[i]}"
+                if [ "$includeLocked" = true ]; then
+                    printf "  %-21s" "${unlocksAtArray[i]}"
+                fi
+                printf "\n"
+            done
+        fi
         ;;
     g|grades )
         compact=false
@@ -313,14 +354,25 @@ case "$subcommand" in
         GREEN='\033[0;92m'
         ORANGE='\033[0;93m'
         NC='\033[0m'
+        BOLDDIM='\033[1;2m'
+        BLINK='\033[5m'
+        if [ "$blankMode" = true ]; then
+            RED=''
+            GREEN=''
+            ORANGE=''
+            NC=''
+            BOLDDIM=''
+            BLINK=''
+        fi
         today=$(date +"%s")
         twoDays=$(date -d "+2days" +"%s")
         oneWeek=$(date -d "+7days" +"%s")
-        colorsArray=()
-        titlesArray=()
-        coursesArray=()
-        scoresArray=()
-        outOfArray=()
+        titlesArray=( "Title" )
+        linksArray=( "" )
+        coursesArray=( "Course" )
+        scoresArray=( "Score" )
+        outOfArray=( "Out Of" )
+        gradesArray=( "Grade" )
         COURSE_URL="$CANVAS_URL/api/v1/courses"
         if [ "$onlyFavCourses" = true ]; then
             COURSE_URL="$CANVAS_URL/api/v1/users/self/favorites/courses"
@@ -336,7 +388,7 @@ case "$subcommand" in
             }
 
             course_code="$(_jqCourse '.course_code')"
-            if [ "$filterCourses" = false ] || [[ " ${courseList[@]} " =~ " ${course_code:4:3} " ]]; then
+            if [ "$filterCourses" = false ] || [[ " ${courseList[@]} " =~ " $( echo "$course_code" | sed 's@^[^0-9]*\([0-9]\+\).*@\1@' ) " ]]; then
             
                 for row in $(curl -s -H "Authorization: Bearer $CANVAS_TOKEN" "$CANVAS_URL/api/v1/courses/$(_jqCourse '.id')/students/submissions?order=graded_at&include[]=assignment" | jq -r '.[] | @base64'); do
 
@@ -345,68 +397,102 @@ case "$subcommand" in
                     }
 
                     if [ $(_jqRow '.workflow_state') != "unsubmitted" ]; then
-                        colorsArray+=( "$color" )
-                        titlesArray+=( "$(_jqRow '.assignment' | jq -r '.name')" )
-                        coursesArray+=( ${course_code:4:3} )
+                        title="$(_jqRow '.assignment' | jq -r '.name')"
+                        if [ ${#title} -gt 30 ]; then
+                            title="${title:0:27}..."
+                        fi
+                        titlesArray+=( "$title" )
+                        coursesArray+=( $( echo "$course_code" | sed 's@^[^0-9]*\([0-9]\+\).*@\1@' ) )
+                        linksArray+=( "$(_jqRow '.html_url')" )
                         score="$(_jqRow '.score')"
-                        if [ "$score" = "null" ] || [ "$score" = "0" ]; then
+                        grade=""
+                        if [ "$score" = "null" ]; then
                             score="-"
+                            grade="-"
                         fi
                         scoresArray+=( "$score" )
                         outOf="$(_jqRow '.assignment' | jq -r '.points_possible')"
-                        if [ "$outOf" = "null" ] || [ "$outOf" = "0" ]; then
+                        if [ "$outOf" = "null" ]; then
                             outOf="-"
+                            grade="-"
+                        elif [ "$outOf" = "0" ]; then
+                            grade="-"
                         fi
                         outOfArray+=( "$outOf" )
+                        if [ "$grade" = "" ]; then
+                            grade=$(((score * 100) / outOf))
+                        fi
+                        gradesArray+=( $grade )
                     fi
                 done
             fi
         done
 
         #output
-        tableHeaders=""
-        if [ "$compact" = true ]; then
-            tableHeaders="Course,Title,Score,Out Of,Grade"
-        fi
-        lastCourse=""
-        printf "\033[1;2m"
+        longestCourse=0
+        longestTitle=0
+        longestOutOf=0
+        longestScore=0
+        longestGrade=0
         for ((i=0; i<${#titlesArray[@]}; i++)); do
-            if [ "$lastCourse" != "${coursesArray[i]}" ]; then
-                if [ "$lastCourse" != "" ]; then
-                    echo -e "|||"
-                fi
-                if [ "$compact" = false ]; then
-                    echo -e "\033[1;2m${coursesArray[i]}${NC}"
-                fi
-                lastCourse=${coursesArray[i]}
+            if [ ${#coursesArray[i]} -gt $longestCourse ]; then
+                longestCourse=${#coursesArray[i]}
             fi
-            color=$NC
-            if [ "${outOfArray[i]}" = "-" ]; then
-                grade="-"
-            else
-                grade="$(((scoresArray[i] * 100) / outOfArray[i]))"
-                if [ "$blankMode" = false ]; then
-                    if [ "$grade" -eq "100" ]; then
+            if [ ${#titlesArray[i]} -gt $longestTitle ]; then
+                longestTitle=${#titlesArray[i]}
+            fi
+            if [ ${#scoresArray[i]} -gt $longestScore ]; then
+                longestScore=${#scoresArray[i]}
+            fi
+            if [ ${#outOfArray[i]} -gt $longestOutOf ]; then
+                longestOutOf=${#outOfArray[i]}
+            fi
+            if [ ${#gradesArray[i]} -gt $longestGrade ]; then
+                longestGrade=${#gradesArray[i]}
+            fi
+        done
+
+        echo -ne "           \r"
+        lastCourse=""
+        if [ "$compact" = true ]; then
+            printf "\n$BOLDDIM%-${longestCourse}s  %-${longestTitle}s  %-${longestScore}s  %-${longestOutOf}s  %-${longestGrade}s$NC" "${coursesArray[0]}" "${titlesArray[0]}" "${scoresArray[0]}" "${outOfArray[0]}" "${gradesArray[0]}"
+            for ((i=1; i<${#titlesArray[@]}; i++)); do
+                if [ "$lastCourse" != "${coursesArray[i]}" ]; then
+                    printf "\n"
+                    lastCourse="${coursesArray[i]}"
+                fi
+                color=$NC
+                if [ "$blankMode" = false ] && [ "${gradesArray[i]}" != "-" ]; then
+                    if [ "${gradesArray[i]}" -eq "100" ]; then
                         color=$GREEN
-                    elif [ "$grade" -ge "80" ]; then
+                    elif [ "${gradesArray[i]}" -ge "80" ]; then
                         color=$ORANGE
-                    elif [ "$grade" -le "40" ]; then
+                    elif [ "${gradesArray[i]}" -le "40" ]; then
                         color=$RED
                     fi
                 fi
-                grade="$grade%"
-            fi
-            line=""
-            title=${titlesArray[i]}
-            if [ "$compact" = true ]; then
-                if [ ${#title} -gt 30 ]; then
-                    title="${title:0:30}..."
+                printf "%-${longestCourse}s  $color\e]8;;${linksArray[i]}\a%-${longestTitle}s\e]8;;\a$NC  %-${longestScore}s  %-${longestOutOf}s  %-${longestGrade}s$NC\n" "${coursesArray[i]}" "${titlesArray[i]}" "${scoresArray[i]}" "${outOfArray[i]}" "${gradesArray[i]}"
+            done
+        else
+            for ((i=1; i<${#titlesArray[@]}; i++)); do
+                if [ "$lastCourse" != "${coursesArray[i]}" ]; then
+                    printf "\n$BOLDDIM${coursesArray[i]}$NC\n"
+                    lastCourse="${coursesArray[i]}"
                 fi
-                line="${NC}${coursesArray[i]}|"
-            fi
-            line="$line$color$title$NC|${scoresArray[i]}|${outOfArray[i]}|$grade"
-            echo -e "$line"
-        done | column -t -s '|' -N "$tableHeaders"
+                color=$NC
+                if [ "$blankMode" = false ] && [ "${gradesArray[i]}" != "-" ]; then
+                    if [ "${gradesArray[i]}" -eq "100" ]; then
+                        color=$GREEN
+                    elif [ "${gradesArray[i]}" -ge "80" ]; then
+                        color=$ORANGE
+                    elif [ "${gradesArray[i]}" -le "40" ]; then
+                        color=$RED
+                    fi
+                fi
+                printf "$color\e]8;;${linksArray[i]}\a%-${longestTitle}s\e]8;;\a$NC  %-${longestScore}s  %-${longestOutOf}s  %-${longestGrade}s\n" "${coursesArray[i]}" "${titlesArray[i]}" "${scoresArray[i]}" "${outOfArray[i]}" "${gradesArray[i]}"
+            done
+        fi
+
         ;;
     s|settings )
         setup -c
