@@ -403,7 +403,7 @@ case "$subcommand" in
                         fi
                         titlesArray+=( "$title" )
                         coursesArray+=( $( echo "$course_code" | sed 's@^[^0-9]*\([0-9]\+\).*@\1@' ) )
-                        linksArray+=( "$(_jqRow '.html_url')" )
+                        linksArray+=( "$(_jqRow '.assignment' | jq -r '.html_url')" )
                         score="$(_jqRow '.score')"
                         grade=""
                         if [ "$score" = "null" ]; then
