@@ -489,7 +489,7 @@ case "$subcommand" in
                         color=$RED
                     fi
                 fi
-                printf "$color\e]8;;${linksArray[i]}\a%-${longestTitle}s\e]8;;\a$NC  %-${longestScore}s  %-${longestOutOf}s  %-${longestGrade}s\n" "${coursesArray[i]}" "${titlesArray[i]}" "${scoresArray[i]}" "${outOfArray[i]}" "${gradesArray[i]}"
+                printf "$color\e]8;;${linksArray[i]}\a%-${longestTitle}s\e]8;;\a$NC  %-${longestScore}s  %-${longestOutOf}s  %-${longestGrade}s\n" "${titlesArray[i]}" "${scoresArray[i]}" "${outOfArray[i]}" "${gradesArray[i]}"
             done
         fi
 
