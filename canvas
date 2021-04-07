@@ -85,6 +85,13 @@ CANVAS_TOKEN=""
 SETTINGS_LOCATION=~/.config/canvas_settings
 CHANGE_ENABLED=false
 
+# Calculate widths
+COLS=$(tput cols)                   # Get width of terminal
+WIDTH=$((COLS - 45))               # date width = 22
+WIDTH=$((WIDTH > 30 ? WIDTH : 30))  # Clamp width to a minimum of 30
+WIDTH_INNER=$((WIDTH - 3))
+
+
 subcommand=$1
 if [ "$subcommand" = "null" ] || [ "$subcommand" = "" ]; then
     subcommand="h"
@@ -232,8 +239,8 @@ case "$subcommand" in
                                 fi
                                 colorsArray+=( "$color" )
                                 title=$(_jqRow '.name')
-                                if [ ${#title} -gt 30 ]; then
-                                    title="${title:0:27}..."
+                                if [ ${#title} -gt $WIDTH ]; then
+                                    title="${title:0:$WIDTH_INNER}..."
                                 fi
                                 titlesArray+=( "$title" )
                                 if [ "$invalidDate" = true ]; then
@@ -284,7 +291,7 @@ case "$subcommand" in
                     printf "\n"
                     lastCourse="${coursesArray[i]}"
                 fi
-                printf "%-${longestCourse}s  ${colorsArray[i]}\e]8;;${linksArray[i]}\a%-${longestTitle}s\e]8;;\a$NC  %-21s" "${coursesArray[i]}" "${titlesArray[i]}" "${deadlinesArray[i]}"
+                printf "%-${longestCourse}s  ${colorsArray[i]}\e]8;;${linksArray[i]}\a%-${WIDTH}s\e]8;;\a$NC  %-${WIDTH}s" "${coursesArray[i]}" "${titlesArray[i]}" "${deadlinesArray[i]}"
                 if [ "$includeLocked" = true ]; then
                     printf "  %-21s" "${unlocksAtArray[i]}"
                 fi
