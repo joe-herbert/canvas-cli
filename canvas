@@ -305,6 +305,8 @@ case "$subcommand" in
         fi
         ;;
     g|grades )
+        command -v bc >/dev/null || (echo "Package bc must be installed." && exit 1)
+
         compact=false
         blankMode=false
         onlyFavCourses=false
@@ -420,7 +422,7 @@ case "$subcommand" in
                         fi
                         outOfArray+=( "$outOf" )
                         if [ "$grade" = "" ]; then
-                            grade=$(((score * 100) / outOf))
+                            grade=$(echo "scale=2; ($score*100)/$outOf" | bc)
                         fi
                         gradesArray+=( $grade )
                     fi
@@ -481,15 +483,15 @@ case "$subcommand" in
                 fi
                 color=$NC
                 if [ "$blankMode" = false ] && [ "${gradesArray[i]}" != "-" ]; then
-                    if [ "${gradesArray[i]}" -eq "100" ]; then
+                    if [ $(echo "${gradesArray[i]} == 100" | bc -l) ]; then
                         color=$GREEN
-                    elif [ "${gradesArray[i]}" -ge "80" ]; then
+                    elif [ $(echo "${gradesArray[i]} >= 80" | bc -l) ]; then
                         color=$ORANGE
-                    elif [ "${gradesArray[i]}" -le "40" ]; then
+                    elif [ $(echo "${gradesArray[i]} < 40" | bc -l) ]; then
                         color=$RED
                     fi
                 fi
-                printf "$color\e]8;;${linksArray[i]}\a%-${longestTitle}s\e]8;;\a$NC  %-${longestScore}s  %-${longestOutOf}s  %-${longestGrade}s\n" "${titlesArray[i]}" "${scoresArray[i]}" "${outOfArray[i]}" "${gradesArray[i]}"
+                printf "$color\e]8;;${linksArray[i]}\a%-${longestTitle}s\e]8;;\a$NC  %-${longestScore}s  %-${longestOutOf}s  %-${longestGrade}s\n" "${titlesArray[i]}" "${scoresArray[i]}" "${outOfArray[i]}" "${grade%.00}"
             done
         fi
 
