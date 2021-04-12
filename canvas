@@ -85,10 +85,18 @@ arrayContains() {
     arrayContainsRes=false
     srch=$1
     shift
+    allowSubstr=$1
+    shift
     myArr=("$@")
     for i in ${myArr[@]}; do
-        if [ "$i" = "$srch" ]; then
-            arrayContainsRes=true
+        if [ "$allowSubstr" = true ]; then
+            if [[ "$srch" =~ "$i" ]]; then
+                arrayContainsRes=true
+            fi
+        else 
+            if [ "$i" = "$srch" ]; then
+                arrayContainsRes=true
+            fi
         fi
     done
 }
@@ -121,11 +129,12 @@ case "$subcommand" in
         filterCourses=false
         courseList=()
         includeLinks=false
+        fullCourseTitles=false
 
-        while getopts ":hcbflswm:" opt; do
+        while getopts ":hcbflswtm:" opt; do
             case $opt in
-                h ) echo -e "\nUsage:\n\tcanvas u [option]\n\tcanvas upcoming [option]"
-                    echo -e "Options:\n\t-h,Display this help message.\n\t-c,Display the output in compact style.\n\t-b,Enable blank mode so the output doesn't use colours.\n\t-f,Display only favourited courses.\n\t-l,Display assignments which haven't yet unlocked.\n\t-s,Display submitted assignments.\n\t-w,Include web links to the assignment at the end of each row. Might negatively impact appearance.\n\t-m [code],Display only specific courses. Courses should be specified as numeric codes separated by a comma." | column -t -s ','
+                h ) echo -e "\n$compact\nUsage:\n\tcanvas u [option]\n\tcanvas upcoming [option]"
+                    echo -e "Options:\n\t-h,Display this help message.\n\t-c,Display the output in compact style.\n\t-b,Enable blank mode so the output doesn't use colours.\n\t-f,Display only favourited courses.\n\t-l,Display assignments which haven't yet unlocked.\n\t-s,Display submitted assignments.\n\t-w,Include web links to the assignment at the end of each row. Might negatively impact appearance.\n\t-t,Display full course titles rather than shortened ones.\n\t-m [code],Display only specific courses. Courses should be specified as numeric codes separated by a comma." | column -t -s ','
                     echo -e "\nCanvas Token:\nYou must generate a canvas token to use this script. On Canvas, go to your Account Settings and look under Approved Integrations. Create a new access token with the name \"Canvas CLI\" and with no expiration date. Copy the token value, run any Canvas CLI command and paste the token when requested."
                     exit 0
                     ;;
@@ -135,6 +144,7 @@ case "$subcommand" in
                 l ) includeLocked=true;;
                 s ) includeSubmitted=true;;
                 w ) includeLinks=true;;
+                t ) fullCourseTitles=true;;
                 m ) case $OPTARG in
                         : ) echo "Invalid Option: -m requires an argument" 1>&2
                             exit 1
@@ -144,10 +154,14 @@ case "$subcommand" in
                             while IFS=',' read -ra courses; do
                                 for i in "${courses[@]}"; do
                                     if [ "$i" != "" ]; then
-                                        courseList+=( $( echo "$i" | sed 's@^[^0-9]*\([0-9]\+\).*@\1@' ) )
+                                        if [ "$fullCourseTitles" = true ]; then
+                                            courseList+=( "$i" )
+                                        else
+                                            courseList+=( $( echo "$i" | sed 's@^[^0-9]*\([0-9]\+\).*@\1@' ) )
+                                        fi
                                     fi
                                 done
-                            done <<< $(echo "$OPTARG" | sed 's/[^0-9,]*//g')
+                            done <<< "$OPTARG" #$(echo "$OPTARG" | sed 's/[^0-9,]*//g')
                             if [ ${#courseList[@]} = "0" ]; then
                                 echo "Invalid course(s) '$OPTARG': see -h for more info" 1>&2
                                 exit 1
@@ -201,8 +215,11 @@ case "$subcommand" in
                 echo ${course} | base64 --decode | jq -r ${1}
             }
 
-            course_code="$(echo $(_jqCourse '.course_code') | sed 's@^[^0-9]*\([0-9]\+\).*@\1@')"
-            arrayContains "$course_code" "${courseList[@]}"
+            course_code="$(_jqCourse '.course_code')"
+            if [ "$fullCourseTitles" = false ]; then
+                course_code="$(echo "$course_code" | sed 's@^[^0-9]*\([0-9]\+\).*@\1@')"
+            fi
+            arrayContains "$course_code" "$fullCourseTitles" "${courseList[@]}"
             if [ "$filterCourses" = false ] || [ "$arrayContainsRes" = true ]; then
             
                 for row in $(curl -s -H "Authorization: Bearer $CANVAS_TOKEN" "$CANVAS_URL/api/v1/courses/$(_jqCourse '.id')/assignments?order_by=due_at&include[]=submission" | jq -r '.[] | @base64'); do
@@ -343,11 +360,12 @@ case "$subcommand" in
         filterCourses=false
         courseList=()
         includeLinks=false
+        fullCourseTitles=false
 
-        while getopts ":hcbfwm:" opt; do
+        while getopts ":hcbfwtm:" opt; do
             case $opt in
                 h ) echo -e "\nUsage:\n\tcanvas g [option]\n\tcanvas grades [option]"
-                    echo -e "\nOptions:\n\t-h,Display this help message.\n\t-c,Display the output in compact style.\n\t-b,Enable blank mode so the output doesn't use colours.\n\t-f,Display only favourited courses.\n\t-w,Include web links to the assignment at the end of each row. Might negatively impact appearance.\n\t-m [code],Display only specific courses. Courses should be specified as numeric codes separated by a comma." | column -t -s ','
+                    echo -e "\nOptions:\n\t-h,Display this help message.\n\t-c,Display the output in compact style.\n\t-b,Enable blank mode so the output doesn't use colours.\n\t-f,Display only favourited courses.\n\t-w,Include web links to the assignment at the end of each row. Might negatively impact appearance.\n\t-t,Display full course titles rather than shortened ones.\n\t-m [code],Display only specific courses. Courses should be specified as numeric codes separated by a comma." | column -t -s ','
                     echo -e "\nCanvas Token:\nYou must generate a canvas token to use this script. On Canvas, go to your Account Settings and look under Approved Integrations. Create a new access token with the name \"Canvas CLI\" and with no expiration date. Copy the token value, run any Canvas CLI command and paste the token when requested."
                     exit 0
                     ;;
@@ -355,6 +373,7 @@ case "$subcommand" in
                 b ) blankMode=true;;
                 f ) onlyFavCourses=true;;
                 w ) includeLinks=true;;
+                t ) fullCourseTitles=true;;
                 m ) case $OPTARG in
                         : ) echo "Invalid Option: -m requires an argument" 1>&2
                             exit 1
@@ -364,10 +383,14 @@ case "$subcommand" in
                             while IFS=',' read -ra courses; do
                                 for i in "${courses[@]}"; do
                                     if [ "$i" != "" ]; then
-                                        courseList+=( $( echo "$i" | sed 's@^[^0-9]*\([0-9]\+\).*@\1@' ) )
+                                        if [ "$fullCourseTitles" = true ]; then
+                                            courseList+=( "$i" )
+                                        else
+                                            courseList+=( $( echo "$i" | sed 's@^[^0-9]*\([0-9]\+\).*@\1@' ) )
+                                        fi
                                     fi
                                 done
-                            done <<< $(echo "$OPTARG" | sed 's/[^0-9,]*//g')
+                            done <<< "$OPTARG" #$(echo "$OPTARG" | sed 's/[^0-9,]*//g')
                             if [ ${#courseList[@]} = "0" ]; then
                                 echo "Invalid course(s) '$OPTARG': see -h for more info" 1>&2
                                 exit 1
@@ -421,8 +444,11 @@ case "$subcommand" in
                 echo ${course} | base64 --decode | jq -r ${1}
             }
 
-            course_code="$(echo $(_jqCourse '.course_code' | sed 's@^[^0-9]*\([0-9]\+\).*@\1@') )"
-            arrayContains "$course_code" "${courseList[@]}"
+            course_code="$(_jqCourse '.course_code')"
+            if [ "$fullCourseTitles" = false ]; then
+                course_code="$(echo "$course_code" | sed 's@^[^0-9]*\([0-9]\+\).*@\1@')"
+            fi
+            arrayContains "$course_code" "$fullCourseTitles" "${courseList[@]}"
             if [ "$filterCourses" = false ] || [ "$arrayContainsRes" = true ]; then
             
                 for row in $(curl -s -H "Authorization: Bearer $CANVAS_TOKEN" "$CANVAS_URL/api/v1/courses/$(_jqCourse '.id')/students/submissions?order=graded_at&include[]=assignment" | jq -r '.[] | @base64'); do
