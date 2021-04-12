@@ -80,6 +80,19 @@ startLoader() {
     trap "kill -9 $LOADER_PID" `seq 0 15`
 }
 
+arrayContainsRes=false
+arrayContains() {
+    arrayContainsRes=false
+    srch=$1
+    shift
+    myArr=("$@")
+    for i in ${myArr[@]}; do
+        if [ "$i" = "$srch" ]; then
+            arrayContainsRes=true
+        fi
+    done
+}
+
 CANVAS_URL=""
 CANVAS_TOKEN=""
 SETTINGS_LOCATION=~/.config/canvas_settings
@@ -107,11 +120,12 @@ case "$subcommand" in
         includeSubmitted=false
         filterCourses=false
         courseList=()
+        includeLinks=false
 
-        while getopts ":hcbflsm:" opt; do
+        while getopts ":hcbflswm:" opt; do
             case $opt in
                 h ) echo -e "\nUsage:\n\tcanvas u [option]\n\tcanvas upcoming [option]"
-                    echo -e "Options:\n\t-h,Display this help message.\n\t-c,Display the output in compact style.\n\t-b,Enable blank mode so the output doesn't use colours.\n\t-f,Display only favourited courses.\n\t-l,Display assignments which haven't yet unlocked.\n\t-s,Display submitted assignments.\n\t-m [code],Display only specific courses. Courses should be specified as numeric codes separated by a comma." | column -t -s ','
+                    echo -e "Options:\n\t-h,Display this help message.\n\t-c,Display the output in compact style.\n\t-b,Enable blank mode so the output doesn't use colours.\n\t-f,Display only favourited courses.\n\t-l,Display assignments which haven't yet unlocked.\n\t-s,Display submitted assignments.\n\t-w,Include web links to the assignment at the end of each row. Might negatively impact appearance.\n\t-m [code],Display only specific courses. Courses should be specified as numeric codes separated by a comma." | column -t -s ','
                     echo -e "\nCanvas Token:\nYou must generate a canvas token to use this script. On Canvas, go to your Account Settings and look under Approved Integrations. Create a new access token with the name \"Canvas CLI\" and with no expiration date. Copy the token value, run any Canvas CLI command and paste the token when requested."
                     exit 0
                     ;;
@@ -120,6 +134,7 @@ case "$subcommand" in
                 f ) onlyFavCourses=true;;
                 l ) includeLocked=true;;
                 s ) includeSubmitted=true;;
+                w ) includeLinks=true;;
                 m ) case $OPTARG in
                         : ) echo "Invalid Option: -m requires an argument" 1>&2
                             exit 1
@@ -129,7 +144,7 @@ case "$subcommand" in
                             while IFS=',' read -ra courses; do
                                 for i in "${courses[@]}"; do
                                     if [ "$i" != "" ]; then
-                                        courseList+=( $( echo "i" | sed 's@^[^0-9]*\([0-9]\+\).*@\1@' ) )
+                                        courseList+=( $( echo "$i" | sed 's@^[^0-9]*\([0-9]\+\).*@\1@' ) )
                                     fi
                                 done
                             done <<< $(echo "$OPTARG" | sed 's/[^0-9,]*//g')
@@ -186,8 +201,9 @@ case "$subcommand" in
                 echo ${course} | base64 --decode | jq -r ${1}
             }
 
-            course_code="$(_jqCourse '.course_code')"
-            if [ "$filterCourses" = false ] || [[ " ${courseList[@]} " =~ " $( echo "$course_code" | sed 's@^[^0-9]*\([0-9]\+\).*@\1@' ) " ]]; then
+            course_code="$(echo $(_jqCourse '.course_code') | sed 's@^[^0-9]*\([0-9]\+\).*@\1@')"
+            arrayContains "$course_code" "${courseList[@]}"
+            if [ "$filterCourses" = false ] || [ "$arrayContainsRes" = true ]; then
             
                 for row in $(curl -s -H "Authorization: Bearer $CANVAS_TOKEN" "$CANVAS_URL/api/v1/courses/$(_jqCourse '.id')/assignments?order_by=due_at&include[]=submission" | jq -r '.[] | @base64'); do
 
@@ -241,7 +257,7 @@ case "$subcommand" in
                                 else
                                     deadlinesArray+=( "$(date -d $due_at +"%a %d %b %Y %H:%M")" )
                                 fi
-                                coursesArray+=( $( echo "$course_code" | sed 's@^[^0-9]*\([0-9]\+\).*@\1@' ) )
+                                coursesArray+=( "$course_code" )
                                 linksArray+=( "$(_jqRow '.html_url')" )
                                 if [ "$includeLocked" = true ]; then
                                     if [ "$unlock_at" = "null" ] || [ "$(date -d $unlock_at +"%s")" -le $today ]; then
@@ -284,9 +300,16 @@ case "$subcommand" in
                     printf "\n"
                     lastCourse="${coursesArray[i]}"
                 fi
-                printf "%-${longestCourse}s  ${colorsArray[i]}\e]8;;${linksArray[i]}\a%-${longestTitle}s\e]8;;\a$NC  %-21s" "${coursesArray[i]}" "${titlesArray[i]}" "${deadlinesArray[i]}"
+                link="%-${longestTitle}s"
+                if [ "$includeLinks" = false ]; then
+                    link="\e]8;;${linksArray[i]}\a$link\e]8;;\a"
+                fi
+                printf "%-${longestCourse}s  ${colorsArray[i]}$link$NC  %-21s" "${coursesArray[i]}" "${titlesArray[i]}" "${deadlinesArray[i]}"
                 if [ "$includeLocked" = true ]; then
                     printf "  %-21s" "${unlocksAtArray[i]}"
+                fi
+                if [ "$includeLinks" = true ]; then
+                    printf "  %s" "${linksArray[i]}"
                 fi
                 printf "\n"
             done
@@ -296,9 +319,16 @@ case "$subcommand" in
                     printf "\n$BOLDDIM${coursesArray[i]}$NC\n"
                     lastCourse="${coursesArray[i]}"
                 fi
-                printf "${colorsArray[i]}\e]8;;${linksArray[i]}\a%-${longestTitle}s\e]8;;\a$NC  %-21s" "${titlesArray[i]}" "${deadlinesArray[i]}"
+                link="%-${longestTitle}s"
+                if [ "$includeLinks" = false ]; then
+                    link="\e]8;;${linksArray[i]}\a$link\e]8;;\a"
+                fi
+                printf "${colorsArray[i]}$link$NC  %-21s" "${titlesArray[i]}" "${deadlinesArray[i]}"
                 if [ "$includeLocked" = true ]; then
                     printf "  %-21s" "${unlocksAtArray[i]}"
+                fi
+                if [ "$includeLinks" = true ]; then
+                    printf "  %s" "${linksArray[i]}"
                 fi
                 printf "\n"
             done
@@ -312,17 +342,19 @@ case "$subcommand" in
         onlyFavCourses=false
         filterCourses=false
         courseList=()
+        includeLinks=false
 
-        while getopts ":hcbfm:" opt; do
+        while getopts ":hcbfwm:" opt; do
             case $opt in
                 h ) echo -e "\nUsage:\n\tcanvas g [option]\n\tcanvas grades [option]"
-                    echo -e "\nOptions:\n\t-h,Display this help message.\n\t-c,Display the output in compact style.\n\t-b,Enable blank mode so the output doesn't use colours.\n\t-f,Display only favourited courses.\n\t-m [code],Display only specific courses. Courses should be specified as numeric codes separated by a comma." | column -t -s ','
+                    echo -e "\nOptions:\n\t-h,Display this help message.\n\t-c,Display the output in compact style.\n\t-b,Enable blank mode so the output doesn't use colours.\n\t-f,Display only favourited courses.\n\t-w,Include web links to the assignment at the end of each row. Might negatively impact appearance.\n\t-m [code],Display only specific courses. Courses should be specified as numeric codes separated by a comma." | column -t -s ','
                     echo -e "\nCanvas Token:\nYou must generate a canvas token to use this script. On Canvas, go to your Account Settings and look under Approved Integrations. Create a new access token with the name \"Canvas CLI\" and with no expiration date. Copy the token value, run any Canvas CLI command and paste the token when requested."
                     exit 0
                     ;;
                 c ) compact=true;;
                 b ) blankMode=true;;
                 f ) onlyFavCourses=true;;
+                w ) includeLinks=true;;
                 m ) case $OPTARG in
                         : ) echo "Invalid Option: -m requires an argument" 1>&2
                             exit 1
@@ -332,7 +364,7 @@ case "$subcommand" in
                             while IFS=',' read -ra courses; do
                                 for i in "${courses[@]}"; do
                                     if [ "$i" != "" ]; then
-                                        courseList+=( $( echo "$course_code" | sed 's@^[^0-9]*\([0-9]\+\).*@\1@' ) )
+                                        courseList+=( $( echo "$i" | sed 's@^[^0-9]*\([0-9]\+\).*@\1@' ) )
                                     fi
                                 done
                             done <<< $(echo "$OPTARG" | sed 's/[^0-9,]*//g')
@@ -389,8 +421,9 @@ case "$subcommand" in
                 echo ${course} | base64 --decode | jq -r ${1}
             }
 
-            course_code="$(_jqCourse '.course_code')"
-            if [ "$filterCourses" = false ] || [[ " ${courseList[@]} " =~ " $( echo "$course_code" | sed 's@^[^0-9]*\([0-9]\+\).*@\1@' ) " ]]; then
+            course_code="$(echo $(_jqCourse '.course_code' | sed 's@^[^0-9]*\([0-9]\+\).*@\1@') )"
+            arrayContains "$course_code" "${courseList[@]}"
+            if [ "$filterCourses" = false ] || [ "$arrayContainsRes" = true ]; then
             
                 for row in $(curl -s -H "Authorization: Bearer $CANVAS_TOKEN" "$CANVAS_URL/api/v1/courses/$(_jqCourse '.id')/students/submissions?order=graded_at&include[]=assignment" | jq -r '.[] | @base64'); do
 
@@ -404,7 +437,7 @@ case "$subcommand" in
                             title="${title:0:27}..."
                         fi
                         titlesArray+=( "$title" )
-                        coursesArray+=( $( echo "$course_code" | sed 's@^[^0-9]*\([0-9]\+\).*@\1@' ) )
+                        coursesArray+=( "$course_code" )
                         linksArray+=( "$(_jqRow '.assignment' | jq -r '.html_url')" )
                         score="$(_jqRow '.score')"
                         grade=""
@@ -465,15 +498,23 @@ case "$subcommand" in
                 fi
                 color=$NC
                 if [ "$blankMode" = false ] && [ "${gradesArray[i]}" != "-" ]; then
-                    if [ "${gradesArray[i]}" -eq "100" ]; then
+                    if [ $(echo "${gradesArray[i]} == 100" | bc -l) ]; then
                         color=$GREEN
-                    elif [ "${gradesArray[i]}" -ge "80" ]; then
+                    elif [ $(echo "${gradesArray[i]} >= 80" | bc -l) ]; then
                         color=$ORANGE
-                    elif [ "${gradesArray[i]}" -le "40" ]; then
+                    elif [ $(echo "${gradesArray[i]} < 40" | bc -l) ]; then
                         color=$RED
                     fi
                 fi
-                printf "%-${longestCourse}s  $color\e]8;;${linksArray[i]}\a%-${longestTitle}s\e]8;;\a$NC  %-${longestScore}s  %-${longestOutOf}s  %-${longestGrade}s$NC\n" "${coursesArray[i]}" "${titlesArray[i]}" "${scoresArray[i]}" "${outOfArray[i]}" "${gradesArray[i]}"
+                link="%-${longestTitle}s"
+                if [ "$includeLinks" = false ]; then
+                    link="\e]8;;${linksArray[i]}\a$link\e]8;;\a"
+                fi
+                printf "%-${longestCourse}s  $color$link$NC  %-${longestScore}s  %-${longestOutOf}s  %-${longestGrade}s$NC" "${coursesArray[i]}" "${titlesArray[i]}" "${scoresArray[i]}" "${outOfArray[i]}" "${gradesArray[i]%.00}"
+                if [ "$includeLinks" = true ]; then
+                    printf "  %s" "${linksArray[i]}"
+                fi
+                printf "\n"
             done
         else
             for ((i=1; i<${#titlesArray[@]}; i++)); do
@@ -491,7 +532,15 @@ case "$subcommand" in
                         color=$RED
                     fi
                 fi
-                printf "$color\e]8;;${linksArray[i]}\a%-${longestTitle}s\e]8;;\a$NC  %-${longestScore}s  %-${longestOutOf}s  %-${longestGrade}s\n" "${titlesArray[i]}" "${scoresArray[i]}" "${outOfArray[i]}" "${grade%.00}"
+                link="%-${longestTitle}s"
+                if [ "$includeLinks" = false ]; then
+                    link="\e]8;;${linksArray[i]}\a$link\e]8;;\a"
+                fi
+                printf "$color$link$NC  %-${longestScore}s  %-${longestOutOf}s  %-${longestGrade}s" "${titlesArray[i]}" "${scoresArray[i]}" "${outOfArray[i]}" "${gradesArray[i]%.00}"
+                if [ "$includeLinks" = true ]; then
+                    printf "  %s" "${linksArray[i]}"
+                fi
+                printf "\n"
             done
         fi
 
