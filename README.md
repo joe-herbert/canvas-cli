@@ -27,16 +27,16 @@ Use with one of the following commands:
     canvas u
     canvas upcoming
 
-By default shows all courses, only shows unlocked and unsubmitted assignments and uses colours to show urgency (orange for due in less than a week, red for due in less than 48 hours and blinking red for due in less than 24 hours).  
+By default shows all courses, only shows unlocked and unsubmitted assignments and uses colours to show urgency (green for submitted, orange for due in less than a week, red for due in less than 48 hours and blinking red for due in less than 24 hours).  
 
     -c         Display the output in compact style.
-	-b         Enable blank mode so the output doesn't use colours.
-	-f         Display only favourited courses.
-	-l         Display assignments which haven't yet unlocked.
-	-s         Display submitted assignments.
-	-w         Include web links to the assignment at the end of each row. Might negatively impact appearance.
+    -b         Enable blank mode so the output doesn't use colours.
+    -f         Display only favourited courses.
+    -l         Display assignments which haven't yet unlocked.
+    -s         Display submitted assignments.
+    -w         Include web links to the assignment at the end of each row. Might negatively impact appearance.
     -t         Display full course titles rather than shortened ones.
-	-m [code]  Display only specific courses. Courses should be specified as numeric codes separated by a comma.
+    -m [code]  Display only specific courses. Courses should be specified as numeric codes separated by a comma.
 
 ### Grades
 Use with one of the following commands:
@@ -47,12 +47,12 @@ Use with one of the following commands:
 By default shows all courses and uses colours to show the grade (red if < 40, orange if >= 80, green if = 100).
 
     -h         Display this help message.
-	-c         Display the output in compact style.
-	-b         Enable blank mode so the output doesn't use colours.
-	-f         Display only favourited courses.
-	-w         Include web links to the assignment at the end of each row. Might negatively impact appearance.
+    -c         Display the output in compact style.
+    -b         Enable blank mode so the output doesn't use colours.
+    -f         Display only favourited courses.
+    -w         Include web links to the assignment at the end of each row. Might negatively impact appearance.
     -t         Display full course titles rather than shortened ones.
-	-m [code]  Display only specific courses. Courses should be specified as numeric codes separated by a comma.
+    -m [code]  Display only specific courses. Courses should be specified as numeric codes separated by a comma.
     
 ### Notes
 - Links are known to work in `terminator` and `gnome-terminal`, other terminal emulators may or may not support turning the assignment names into links. You can turn on the full URL links at the end of each row using the `-w` option.
