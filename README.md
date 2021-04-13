@@ -46,7 +46,6 @@ Use with one of the following commands:
 
 By default shows all courses and uses colours to show the grade (red if < 40, orange if >= 80, green if = 100).
 
-    -h         Display this help message.
     -c         Display the output in compact style.
     -b         Enable blank mode so the output doesn't use colours.
     -f         Display only favourited courses.
