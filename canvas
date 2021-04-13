@@ -209,7 +209,7 @@ case "$subcommand" in
         startLoader
 
         #for each course
-        for course in $(curl -s -H "Authorization: Bearer $CANVAS_TOKEN" "$COURSE_URL" | jq -r '.[] | @base64'); do
+        for course in $(curl -s -H "Authorization: Bearer $CANVAS_TOKEN" "$COURSE_URL?per_page=100" | jq -r '.[] | @base64'); do
 
             _jqCourse() {
                 echo ${course} | base64 --decode | jq -r ${1}
@@ -222,7 +222,7 @@ case "$subcommand" in
             arrayContains "$course_code" "$fullCourseTitles" "${courseList[@]}"
             if [ "$filterCourses" = false ] || [ "$arrayContainsRes" = true ]; then
             
-                for row in $(curl -s -H "Authorization: Bearer $CANVAS_TOKEN" "$CANVAS_URL/api/v1/courses/$(_jqCourse '.id')/assignments?order_by=due_at&include[]=submission" | jq -r '.[] | @base64'); do
+                for row in $(curl -s -H "Authorization: Bearer $CANVAS_TOKEN" "$CANVAS_URL/api/v1/courses/$(_jqCourse '.id')/assignments?per_page=100&order_by=due_at&include[]=submission" | jq -r '.[] | @base64'); do
 
                     _jqRow() {
                         echo ${row} | base64 --decode | jq -r ${1}
@@ -438,7 +438,7 @@ case "$subcommand" in
         startLoader
 
         #for each course
-        for course in $(curl -s -H "Authorization: Bearer $CANVAS_TOKEN" "$COURSE_URL" | jq -r '.[] | @base64'); do
+        for course in $(curl -s -H "Authorization: Bearer $CANVAS_TOKEN" "$COURSE_URL?per_page=100" | jq -r '.[] | @base64'); do
 
             _jqCourse() {
                 echo ${course} | base64 --decode | jq -r ${1}
@@ -451,7 +451,7 @@ case "$subcommand" in
             arrayContains "$course_code" "$fullCourseTitles" "${courseList[@]}"
             if [ "$filterCourses" = false ] || [ "$arrayContainsRes" = true ]; then
             
-                for row in $(curl -s -H "Authorization: Bearer $CANVAS_TOKEN" "$CANVAS_URL/api/v1/courses/$(_jqCourse '.id')/students/submissions?order=graded_at&include[]=assignment" | jq -r '.[] | @base64'); do
+                for row in $(curl -s -H "Authorization: Bearer $CANVAS_TOKEN" "$CANVAS_URL/api/v1/courses/$(_jqCourse '.id')/students/submissions?per_page=100&order=graded_at&include[]=assignment" | jq -r '.[] | @base64'); do
 
                     _jqRow() {
                         echo ${row} | base64 --decode | jq -r ${1}
