@@ -224,6 +224,10 @@ case "$subcommand" in
             
                 for row in $(curl -s -H "Authorization: Bearer $CANVAS_TOKEN" "$CANVAS_URL/api/v1/courses/$(_jqCourse '.id')/assignments?per_page=100&order_by=due_at&include[]=submission" | jq -r '.[] | @base64'); do
 
+                    if [ "$(echo $row | base64 --decode)" = "unauthorised" ]; then
+                        break
+                    fi
+
                     _jqRow() {
                         echo ${row} | base64 --decode | jq -r ${1}
                     }
@@ -452,6 +456,10 @@ case "$subcommand" in
             if [ "$filterCourses" = false ] || [ "$arrayContainsRes" = true ]; then
             
                 for row in $(curl -s -H "Authorization: Bearer $CANVAS_TOKEN" "$CANVAS_URL/api/v1/courses/$(_jqCourse '.id')/students/submissions?per_page=100&order=graded_at&include[]=assignment" | jq -r '.[] | @base64'); do
+
+                    if [ "$(echo $row | base64 --decode)" = "unauthorised" ]; then
+                        break
+                    fi
 
                     _jqRow() {
                         echo ${row} | base64 --decode | jq -r ${1}
