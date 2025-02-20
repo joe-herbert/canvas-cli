@@ -1,3 +1,5 @@
+*This is no longer maintained. Since graduation I no longer have a canvas token and I am therefore unable to test it. Feel free to fork it if you encounter issues you'd like to fix.*
+
 # canvas-cli
 A Bash CLI for the Canvas VLE  
 *Note: Canvas CLI is a third-party script and has no official affiliation with Canvas*  
